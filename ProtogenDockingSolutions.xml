@@ -2,10 +2,10 @@
 <PluginData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="GitHubPlugin">
   <!-- The ID of your plugin, never change this -->
   <Id>47A4C4B6-BE43-4B1D-A3C6-85069FA67F89</Id>
-  <!-- TODO before submitting: your public GitHub repository as owner/repo, and your name in Author -->
-  <RepoId>OWNER/ProtogenDockingSolutions</RepoId>
+  <!-- GitHub repository as owner/repo -->
+  <RepoId>ryancrimsonrd-ux/ProtogenDockingSolutions</RepoId>
   <FriendlyName>Protogen Systems Docking Solutions</FriendlyName>
-  <Author>OWNER</Author>
+  <Author>ryancrimsonrd-ux</Author>
   <Tooltip>Dock camera, Docking Assist screens and docking guidance for any connector, with an API for other plugins and mods.</Tooltip>
   <Description>
     Protogen Systems Docking Solutions helps you dock: a full-screen dock camera on your connector's face with guidance
@@ -24,7 +24,7 @@
     <Directory>ClientPlugin</Directory>
     <Directory>Shared</Directory>
   </SourceDirectories>
-  <!-- TODO before submitting: the full lowercase hash of the pushed release commit on the default branch -->
+  <!-- The PluginHub copy of this file carries the reviewed release commit; this one stays a placeholder. -->
   <Commit>0000000000000000000000000000000000000000</Commit>
   <!-- CLR = Pulsar Legacy (.NET Framework 4.8), CoreCLR = Pulsar Interim (.NET 10). -->
   <Runtimes>CLR,CoreCLR</Runtimes>
