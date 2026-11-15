@@ -1,0 +1,59 @@
+using System;
+using HarmonyLib;
+using VRage.Plugins;
+using VRage.Utils;
+
+namespace ProtogenDocking;
+
+// ReSharper disable once UnusedType.Global
+public class Plugin : IPlugin
+{
+    public const string Name = "Protogen Systems Docking Solutions";
+    private Harmony harmony;
+
+    [System.Runtime.CompilerServices.MethodImplAttribute(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    public void Init(object gameInstance)
+    {
+        try
+        {
+            harmony = new Harmony("ProtogenDockingSolutions");
+            harmony.PatchAll(typeof(Plugin).Assembly);
+        }
+        catch (Exception e) { Log.Write("patching failed, the Docking Assist LCD script and overlay won't load: " + e); }
+        DockPip.Init();
+    }
+
+    public void Update()
+    {
+        try
+        {
+            DockConfig.Poll();
+            DockLcd.Update();
+            DockCam.Update();
+            DockPip.Tick();
+            if (Sandbox.Game.World.MySession.Static != null) DockLcdFeed.Tick();
+        }
+        catch (Exception e) { Log.Throttled("update failed: " + e.Message); }
+    }
+
+    public void Dispose()
+    {
+        try { harmony?.UnpatchAll("ProtogenDockingSolutions"); } catch { }
+        DockPip.Dispose();
+    }
+
+    internal static class Log
+    {
+        private static DateTime next;
+        public static void Write(string msg)
+        {
+            try { MyLog.Default?.WriteLineAndConsole("Docking Solutions: " + msg); } catch { }
+        }
+        public static void Throttled(string msg)
+        {
+            if (DateTime.UtcNow < next) return;
+            next = DateTime.UtcNow.AddSeconds(10);
+            Write(msg);
+        }
+    }
+}

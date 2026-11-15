@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+*.user
+Directory.Build.props.user
+Krafs.Publicizer.*.log
+
+# Local deploy backups and scratch notes
+artifacts/
+notes for claude*.txt
+
+# IDE
+.vs/
+.idea/
+*.suo
