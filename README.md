@@ -154,6 +154,11 @@ New with the PiP:
 
 ## Settings
 
+**Settings window:** Pulsar's **Config** button for the plugin, or **Ctrl+Alt+D** in game, opens a window with the
+dock camera's and the PiP's view and style, the PiP's corner, size and shape, the quality preset, the LCD camera,
+colours, the dock and ignore tags, and the search range. Changes apply at once and are saved when the window closes;
+**Defaults** puts them all back (the dock camera's spot per connector is kept). Everything is also in the file:
+
 `%AppData%\SpaceEngineers\Storage\ProtogenDockingSolutions\DockingSolutions.ini`. Saving the file reloads it in game.
 
 | Key | Default | |

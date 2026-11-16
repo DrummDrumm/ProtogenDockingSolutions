@@ -49,7 +49,7 @@ internal static class DockConfig
         try
         {
             var t = File.Exists(FilePath) ? File.GetLastWriteTimeUtc(FilePath) : DateTime.MinValue;
-            if (t != lastWrite) Reload();
+            if (t != lastWrite && !dirty) Reload();
         }
         catch { }
     }
@@ -65,18 +65,34 @@ internal static class DockConfig
         Version++;
     }
 
-    public static void Change(Action<DockSettings> change)
+    private static bool dirty;
+
+    /// <summary>Applies a change and saves it; save: false keeps it in memory until <see cref="Flush"/> (the settings window's sliders).</summary>
+    public static void Change(Action<DockSettings> change, bool save = true)
     {
         EnsureLoaded();
         var s = current.Copy();
         change(s);
         current = s;
-        Save();
+        if (save) Save(); else dirty = true;
+        Version++;
+    }
+
+    /// <summary>Writes changes held in memory, if any.</summary>
+    public static void Flush() { if (dirty) Save(); }
+
+    /// <summary>Every setting back to its default, except the dock camera's spots per connector.</summary>
+    public static void ResetDefaults(bool save = true)
+    {
+        EnsureLoaded();
+        current = new DockSettings { DockCamOffsets = current.DockCamOffsets };
+        if (save) Save(); else dirty = true;
         Version++;
     }
 
     private static void Save()
     {
+        dirty = false;
         try
         {
             Directory.CreateDirectory(Folder);

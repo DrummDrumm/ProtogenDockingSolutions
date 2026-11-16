@@ -27,6 +27,7 @@ public class Plugin : IPlugin
     {
         try
         {
+            DockSettingsScreen.CheckHotkey();
             DockConfig.Poll();
             DockLcd.Update();
             DockCam.Update();
@@ -35,6 +36,9 @@ public class Plugin : IPlugin
         }
         catch (Exception e) { Log.Throttled("update failed: " + e.Message); }
     }
+
+    /// <summary>Pulsar's Config button.</summary>
+    public void OpenConfigDialog() => DockSettingsScreen.Open();
 
     public void Dispose()
     {
