@@ -58,11 +58,14 @@ function Run([string]$Exe, [string[]]$ArgList, [string]$In = $Repo) {
 
 function Invoke-Git([string[]]$ArgList, [string]$In = $Repo) {
     Push-Location $In
+    $eap = $ErrorActionPreference
     try {
-        $out = & git.exe @ArgList
+        # git writes warnings (line endings, hints) to stderr; Windows PowerShell would turn them into errors.
+        $ErrorActionPreference = 'Continue'
+        $out = & git.exe @ArgList 2>$null
         if ($LASTEXITCODE -ne 0) { throw "'git $($ArgList -join ' ')' failed with exit code $LASTEXITCODE." }
         return $out
-    } finally { Pop-Location }
+    } finally { $ErrorActionPreference = $eap; Pop-Location }
 }
 
 # True when the git command succeeds; its output is discarded. (Windows PowerShell turns redirected stderr
