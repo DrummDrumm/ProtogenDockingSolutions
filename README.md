@@ -248,3 +248,7 @@ The auto-rebuild script is `Protogen Systems\Plugin-Legacy\Tools\Update-AfterGam
 "After a game update"). It rebuilds and redeploys both plugins when Steam updates the game, and first checks that
 everything this plugin patches still exists in the new game DLLs. That list is `Protogen Systems\Plugin-Legacy\Tools\HookCheck\hooks.txt`:
 add to it when adding a patch here.
+
+## Releasing
+
+How to release an update to PluginHub, and the `Release-PluginHub.ps1` script that does it: [RELEASING.md](RELEASING.md).
