@@ -9,5 +9,5 @@ namespace ProtogenDocking;
 // Shared by local builds and Pulsar's source compiler.
 internal static class BuildVersion
 {
-    public const string Version = "1.1.0";
+    public const string Version = "1.2.0";
 }
