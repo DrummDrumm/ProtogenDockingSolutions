@@ -9,8 +9,9 @@
     3. Pushes main to GitHub.
     4. Writes the hub manifest with the pushed commit into your PluginHub fork, validates it with the
        hub's own test.py, and pushes a branch.
-    5. Opens GitHub's "new pull request" page with the title and text filled in, so you only click
-       "Create pull request". If a pull request for that branch is already open, it was updated by the push.
+    5. Opens the pull request with the GitHub CLI (gh), signed in as you. Without a signed-in gh, or with
+       -ReviewInBrowser, it opens GitHub's "new pull request" page filled in instead, so you only click
+       "Create pull request". If a pull request for that branch is already open, the push updated it.
 
     See RELEASING.md for the whole process.
 
@@ -29,7 +30,9 @@ param(
     [switch]$DryRun,
     # Skip the Tests project (the builds still run).
     [switch]$SkipTests,
-    # Print the pull request link instead of opening it in the browser.
+    # Open the filled-in pull request page in the browser to check and submit yourself, instead of using gh.
+    [switch]$ReviewInBrowser,
+    # With the browser page: print its link instead of opening it.
     [switch]$NoBrowser
 )
 
@@ -73,6 +76,16 @@ function Invoke-Git([string[]]$ArgList, [string]$In = $Repo) {
 function Test-Git([string[]]$ArgList, [string]$In) {
     $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { & git.exe -C $In @ArgList 2>&1 | Out-Null; return ($LASTEXITCODE -eq 0) } finally { $ErrorActionPreference = $old }
+}
+
+# The GitHub CLI, if installed and signed in; otherwise $null.
+function Find-Gh {
+    $cmd = Get-Command gh -ErrorAction SilentlyContinue
+    $exe = if ($cmd) { $cmd.Source } else { Join-Path $env:ProgramFiles 'GitHub CLI\gh.exe' }
+    if (-not (Test-Path $exe)) { return $null }
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { & $exe auth status 2>&1 | Out-Null; if ($LASTEXITCODE -eq 0) { return $exe } else { return $null } }
+    finally { $ErrorActionPreference = $old }
 }
 
 function Write-Utf8([string]$Path, [string]$Text) {
@@ -205,9 +218,11 @@ Write-Host "Wrote $HubFile (description $descLength characters)"
 $python = Get-Command python -ErrorAction SilentlyContinue
 if ($python) { Run 'python' -ArgList @('-I', 'test.py', 'Plugins/') $HubDir } else { Write-Warning 'Python not found; skipped the hub validator (test.py). GitHub runs it on the pull request.' }
 
+$gh = if ($ReviewInBrowser) { $null } else { Find-Gh }
 if ($DryRun) {
+    $how = if ($gh) { 'with gh' } elseif ($ReviewInBrowser) { 'as a browser page' } else { 'as a browser page (gh is not installed or not signed in: gh auth login)' }
     Write-Host ''
-    Write-Host "Dry run done. Would push branch '$hubBranch' to $owner/PluginHub and open: $title" -ForegroundColor Green
+    Write-Host "Dry run done. Would push branch '$hubBranch' to $owner/PluginHub and open '$title' $how." -ForegroundColor Green
     return
 }
 
@@ -237,6 +252,24 @@ $body = @(
 )
 if ($previous) { $body += "- Changes since the listed commit: https://github.com/$ownerRepo/compare/$previous...$commit" }
 $body = $body -join "`n"
+
+if ($gh) {
+    $bodyFile = [IO.Path]::GetTempFileName()
+    try {
+        Write-Utf8 $bodyFile $body
+        $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        try { $created = & $gh pr create --repo $Upstream --base main --head "$($owner):$hubBranch" --title $title --body-file $bodyFile 2>&1 }
+        finally { $ErrorActionPreference = $old }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host 'Opened the pull request:' -ForegroundColor Green
+            Write-Host "  $(($created | Select-Object -Last 1))"
+            return
+        }
+        Write-Warning "gh could not open the pull request: $($created -join ' ')"
+        Write-Warning 'Falling back to the browser page.'
+    } finally { Remove-Item $bodyFile -ErrorAction SilentlyContinue }
+}
+
 $url = "https://github.com/$Upstream/compare/main...$($owner):PluginHub:$($hubBranch)?expand=1" +
        "&title=$([uri]::EscapeDataString($title))&body=$([uri]::EscapeDataString($body))"
 Write-Host 'Opening the pull request page; check it and click "Create pull request":' -ForegroundColor Green

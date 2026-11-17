@@ -26,7 +26,9 @@ Close the game, then in this folder:
   current version (for example to resubmit a fix during review).
 - `-DryRun` does every check and writes the hub file, but commits, pushes and opens nothing. Run it first if
   you're unsure.
-- `-SkipTests` skips the Tests project. `-NoBrowser` prints the pull request link instead of opening it.
+- `-ReviewInBrowser` opens the filled-in pull request page for you to check and submit, instead of `gh`
+  opening the pull request right away.
+- `-SkipTests` skips the Tests project. `-NoBrowser` prints the browser page's link instead of opening it.
 
 What it does, in order (it stops at the first failure, before anything is pushed):
 
@@ -40,9 +42,15 @@ What it does, in order (it stops at the first failure, before anything is pushed
    - while the first submission isn't merged, it updates that pull request's branch, so the open pull request
      now points at the new commit;
    - after that, each version gets a branch `protogen-docking-solutions-<version>`.
-5. Opens GitHub's pull request page with the title (`Protogen Systems Docking Solutions 1.2.0`) and the text
-   filled in, including a link to the changes since the listed commit. **Check it and click "Create pull
-   request".** That click stays yours, because it posts publicly under your name.
+5. Opens the pull request, titled for example `Protogen Systems Docking Solutions 1.2.0`, with a link to the
+   changes since the listed commit. It uses the GitHub CLI (`gh`), signed in as you, so it posts publicly under
+   your name without another click, and prints the pull request's link. If `gh` isn't installed or signed in,
+   or you pass `-ReviewInBrowser`, it opens GitHub's filled-in pull request page instead; check it and click
+   **Create pull request**.
+
+**One-time setup for `gh`:** install it with `winget install --id GitHub.cli`, open a new terminal and run
+`gh auth login --web --git-protocol https`. `gh auth status` should show `ryancrimsonrd-ux`. A dry run says
+whether the script will use `gh`.
 
 The script can't test the plugin in the game. Do that before you run it (see below).
 
