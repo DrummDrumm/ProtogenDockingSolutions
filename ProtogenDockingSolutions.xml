@@ -16,7 +16,7 @@
     never used. Chat: /dock on | off | next | target | offset | map | theme. Toolbar actions on every cockpit.
 
     Other plugins and mods can read the docking figures, the dock camera's spot and the Docking Assist sprites through the
-    mod message API (Api/DockingSolutionsApi.cs). Protogen Systems - Virtual Displays uses it to show docking on its virtual screens.
+    mod message API (Api/DockingSolutionsApi.cs).
     Client-side only: nothing is sent to the server.
   </Description>
   <!-- Only source code in the Directory entries listed in SourceDirectories is compiled. -->

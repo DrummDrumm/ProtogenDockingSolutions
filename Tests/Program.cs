@@ -42,6 +42,9 @@ internal static partial class Program
         var other = DockSettings.Parse("DockCamOffsets=9:2:0:0\nSomethingElse=1");
         Check(other.DockCamOffsets == "9:2:0:0" && other.DockTag == "[Dock]", "settings: unknown lines ignored");
 
+        Check(DockSettings.ClampOffset(2000, -50, 50) == (20, -10, 10) && DockSettings.ClampOffset(-9, 0.5, -0.5) == (-2, 0.5, -0.5)
+              && DockSettings.ClampOffset(double.NaN, double.PositiveInfinity, 3) == (0, 0, 3), "settings: dock camera spot clamped to -2..20 m forward, ±10 m up/right");
+
         var clamp = DockSettings.Parse("TargetRange=99999\nThemeMain=#102030\nThemeBad=1,2,3,4");
         Check(clamp.TargetRange == 5000, "settings: range clamped");
         Check(clamp.Theme.Main.Equals(new HudColor(16, 32, 48)) && clamp.Theme.Bad.Equals(new HudColor(1, 2, 3, 4)), "settings: #rrggbb and r,g,b,a colours");

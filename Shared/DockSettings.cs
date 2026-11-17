@@ -9,6 +9,16 @@ public sealed class DockSettings
 {
     /// <summary>The dock camera's spot per connector: "connectorId:forward:up:right" (metres), space-separated.</summary>
     public string DockCamOffsets = "";
+
+    /// <summary>How far the dock camera may be moved from its connector's face: forward -2..20 m, up and right -10..10 m.</summary>
+    public const double OffsetBackMax = 2, OffsetForwardMax = 20, OffsetSideMax = 10;
+
+    /// <summary>A camera spot within <see cref="OffsetForwardMax"/> and the other limits; numbers that aren't finite count as 0.</summary>
+    public static (double Forward, double Up, double Right) ClampOffset(double forward, double up, double right)
+    {
+        static double Clamp(double v, double min, double max) => double.IsNaN(v) || double.IsInfinity(v) ? 0 : Math.Max(min, Math.Min(max, v));
+        return (Clamp(forward, -OffsetBackMax, OffsetForwardMax), Clamp(up, -OffsetSideMax, OffsetSideMax), Clamp(right, -OffsetSideMax, OffsetSideMax));
+    }
     /// <summary>A connector with this in its name is picked first as yours.</summary>
     public string DockTag = "[Dock]";
     /// <summary>A connector with this in its name is never used (neither as yours nor as a dock).</summary>

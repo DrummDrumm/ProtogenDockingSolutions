@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
+using Sandbox.Engine.Physics;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.World;
 using Sandbox.ModAPI;
 using VRage.Game;
+using VRage.Game.Entity;
 using VRage.Game.ModAPI;
 using VRage.ModAPI;
 using VRageMath;
@@ -308,7 +310,39 @@ internal sealed class DockTrack
         if (up.LengthSquared() < 1e-6) up = Vector3D.CalculatePerpendicularVector(fwd);
         world = MatrixD.CreateWorld(pos, fwd, Vector3D.Normalize(up));
         if (o.Up != 0 || o.Right != 0) world.Translation += world.Up * o.Up + world.Right * o.Right;
+        world.Translation = Unblocked(Mine.CubeGrid, Mine.ConstraintPositionWorld(), world.Translation);
         return true;
+    }
+
+    /// <summary>How far short of an obstacle the camera stops (metres), so it doesn't sit in a surface.</summary>
+    private const double ObstacleMargin = 0.25;
+
+    [ThreadStatic] private static List<MyPhysics.HitInfo> hits;
+
+    /// <summary>
+    /// The camera spot <paramref name="to"/>, pulled back to just before the first thing in the way along the line from the
+    /// connector's face: another grid, an asteroid or a planet. Your own ship (and whatever is joined to it by rotors,
+    /// pistons or hinges) doesn't count. Like the game's third-person camera, this keeps the view out of other ships and
+    /// rock, so a moved dock camera can't look inside them.
+    /// </summary>
+    private static Vector3D Unblocked(MyCubeGrid own, Vector3D from, Vector3D to)
+    {
+        var line = to - from;
+        double length = line.Length();
+        if (length < 1e-3 || own == null) return to;
+        var list = hits ??= new List<MyPhysics.HitInfo>();
+        list.Clear();
+        try { MyPhysics.CastRay(from, to, list, MyPhysics.CollisionLayers.CollisionLayerWithoutCharacter); }
+        catch { return from; }
+        double nearest = length;
+        foreach (var hit in list)
+        {
+            var top = (hit.HkHitInfo.GetHitEntity() as MyEntity)?.GetTopMostParent();
+            if (top is MyCubeGrid g && (g == own || MyCubeGridGroups.Static.Mechanical.HasSameGroup(g, own))) continue;
+            nearest = Math.Min(nearest, Vector3D.Distance(from, hit.Position));
+        }
+        list.Clear();
+        return nearest >= length ? to : from + line / length * Math.Max(0, nearest - ObstacleMargin);
     }
 
     // ------------------------------------------------------------------ the camera's spot, per connector
@@ -324,8 +358,9 @@ internal sealed class DockTrack
         foreach (var item in text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
         {
             var f = item.Split(':');
+            // the same limits as /dock offset, also for spots typed into the settings file
             if (f.Length == 4 && long.TryParse(f[0], out long id) && Num(f[1], out double a) && Num(f[2], out double b) && Num(f[3], out double c))
-                map[id] = (a, b, c);
+                map[id] = DockSettings.ClampOffset(a, b, c);
         }
         offsetsText = text;
         offsets = map;
@@ -347,9 +382,7 @@ internal sealed class DockTrack
     /// <summary>Saves a connector's camera spot (all 0 = back on its face). Forward -2..20 m, up and right -10..10 m.</summary>
     public static void SetOffset(long connectorId, double forward, double up, double right)
     {
-        forward = Math.Max(-2, Math.Min(20, forward));
-        up = Math.Max(-10, Math.Min(10, up));
-        right = Math.Max(-10, Math.Min(10, right));
+        (forward, up, right) = DockSettings.ClampOffset(forward, up, right);
         var map = new Dictionary<long, (double Forward, double Up, double Right)>(Offsets());
         if (forward == 0 && up == 0 && right == 0) map.Remove(connectorId);
         else map[connectorId] = (forward, up, right);

@@ -26,15 +26,16 @@ internal static class DockConfig
     public static DockSettings Current { get { EnsureLoaded(); return current; } }
     public static DockTheme Theme => Current.ThemeSource == "auto" && External != null ? External : Current.Theme;
 
-    public static string Folder => Path.Combine(string.IsNullOrEmpty(MyFileSystem.UserDataPath)
-        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SpaceEngineers") : MyFileSystem.UserDataPath, "Storage", FolderName);
-    public static string FilePath => Path.Combine(Folder, FileName);
+    /// <summary>Storage\ProtogenDockingSolutions under the game's user data folder (which follows -appdata); null until the game has set it.</summary>
+    public static string Folder => string.IsNullOrEmpty(MyFileSystem.UserDataPath) ? null : Path.Combine(MyFileSystem.UserDataPath, "Storage", FolderName);
+    public static string FilePath => Folder == null ? null : Path.Combine(Folder, FileName);
 
     public static void EnsureLoaded()
     {
         if (loaded || string.IsNullOrEmpty(MyFileSystem.UserDataPath)) return;
         loaded = true;
-        if (File.Exists(FilePath)) Reload();
+        if (dirty) Save();   // changes made before the folder was known
+        else if (File.Exists(FilePath)) Reload();
         else { current = new DockSettings(); Save(); }
     }
 
@@ -92,6 +93,8 @@ internal static class DockConfig
 
     private static void Save()
     {
+        // nowhere to save yet: keep the change in memory, EnsureLoaded saves it once the game's user data folder is known
+        if (Folder == null) { dirty = true; return; }
         dirty = false;
         try
         {

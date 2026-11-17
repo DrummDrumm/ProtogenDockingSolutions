@@ -133,7 +133,7 @@ internal static class DockCommand
         if (n == "file")
         {
             DockConfig.Change(s => s.ThemeSource = "file");
-            return "Docking colours: always the settings file's (" + DockConfig.FilePath + ").";
+            return "Docking colours: always the settings file's (" + (DockConfig.FilePath ?? "Storage\\" + DockConfig.FolderName + "\\" + DockConfig.FileName) + ").";
         }
         var p = DockTheme.Preset(n);
         if (p == null) return "Docking colours: " + (DockConfig.Theme == DockConfig.External ? "another plugin's theme" : "the settings file's") + ". /dock theme amber | cyan | green | white | auto | file";
