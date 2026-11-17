@@ -54,9 +54,14 @@ and an LCD, and the Echo (or a station of yours) with a free `sdx_connectorDocki
 ## 6. Toolbar, controller, theme
 
 - [ ] Drag the cockpit into the toolbar. These are listed and work:
-  - **Dock Camera: on / off**
-  - **Dock: next connector**
-  - **Dock: next dock**
+  - **Dock Camera: on / off** (slot shows Dock / 3rd / Off)
+  - **Dock: next connector of yours**
+  - **Dock: next dock to aim at**
+  - **Dock Camera: camera view / Docking Assist** (slot shows Cam / Asst)
+  - **Docking Assist: next style**
+  - **Dock Camera: picture-in-picture on / off**, **Dock PiP: next corner**, **Dock PiP: dock camera / Docking Assist**,
+    **Dock PiP: move / resize with the mouse** (tested in section 9)
+  - **Docking: next quality preset**
 
   A toolbar that had them before still works.
 - [ ] With a gamepad, the slots work from the controller's toolbar.
@@ -84,7 +89,7 @@ and an LCD, and the Echo (or a station of yours) with a free `sdx_connectorDocki
 - [ ] **No connector:** on a ship without a free connector, the window says *NO FREE CONNECTOR*. Leave the seat: it goes.
 - [ ] **Full-screen dock camera** (`/dock on`): the PiP goes while it's up and comes back after `/dock off`.
 - [ ] **Hide the HUD** (the game's hide-HUD key): the PiP goes with it.
-- [ ] **Editor:** `/dock pip mouse` (also `/dock pip edit`, or **Dock PiP: move / resize with the mouse**).
+- [ ] **Editor:** `/dock pip edit` (or **Dock PiP: move / resize with the mouse**).
   - Drag the window to each quarter of the screen: it stays where it's dropped.
   - Drag the corner square and use the mouse wheel: it resizes. Shift + wheel changes its shape.
   - Right click: it jumps corner. R: back to the default.
@@ -97,3 +102,18 @@ and an LCD, and the Echo (or a station of yours) with a free `sdx_connectorDocki
 - [ ] **Cost:** with `balanced` and the PiP on, FPS drops by no more than about a quarter against PiP off.
 - [ ] *(with Virtual Displays)* PiP on and two camera feeds on the Virtual Displays screens at once: all three pictures are right, and nothing flickers.
 - [ ] Look around the main view with the PiP on: no shadow, lighting or LOD flicker in the main view.
+
+## 10. Admin and AFK pause, world reloads (added 2026-11-16, 1.2.1)
+
+Set up: dock camera on (`/dock on`), PiP on, and an LCD on the Docking Assist.
+
+- [ ] **Admin toggle:** Alt+F10, turn on any admin option (e.g. invulnerable). The log has *Docking Solutions: paused: admin mode*:
+  - the dock camera stops, with *Dock camera off. Docking Solutions is paused (admin mode).*
+  - the PiP goes
+  - the LCD shows only *Docking Assist paused* and the reason, with no live picture
+- [ ] **While paused:** `/dock on` and the toolbar slots only say *Docking Solutions is paused (...)*. Ctrl+Alt+D still opens the settings.
+- [ ] **Back:** turn the admin option off. The log has *running again*, the LCD comes back by itself, and `/dock on` works.
+- [ ] **Admin menu open, creative tools, spectator (F8):** each pauses it the same way, with its own reason.
+- [ ] **AFK, multiplayer** (a hosted or server game): no key, mouse or controller input for 30 s pauses it (*paused: AFK*); moving the mouse resumes it. With a controller plugged in and left alone, it still pauses.
+- [ ] **AFK, single player:** idle for over 30 s: the dock camera stays on and the log has no *paused: AFK*.
+- [ ] **Second world:** load a world with Build Info, go back to the main menu (don't restart), load a vanilla world, then turn the dock camera on from the toolbar. No crash, and the slot's label updates.
