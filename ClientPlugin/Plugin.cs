@@ -29,6 +29,14 @@ public class Plugin : IPlugin
         {
             DockSettingsScreen.CheckHotkey();
             DockConfig.Poll();
+            if (PlayGuard.Update(DockClock.Now))
+            {
+                bool cam = DockCam.Active;
+                DockCam.Stop("");
+                DockPip.Clear();
+                if (cam) DockCam.Say("Dock camera off. " + PlayGuard.Paused, 4000);
+            }
+            if (PlayGuard.Blocked) return;
             DockLcd.Update();
             DockCam.Update();
             DockPip.Tick();

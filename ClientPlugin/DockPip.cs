@@ -442,7 +442,7 @@ internal static class DockPip
     /// <summary>After the main scene: the PiP (render when due, stretch into its window), then a Docking Assist LCD's feed.</summary>
     private static void DrawGameScenePostfix(IRtvBindable renderTarget)
     {
-        if (Drawing || renderTarget == null) return;
+        if (Drawing || renderTarget == null || PlayGuard.Blocked) return;
         DrawPip(renderTarget);
         DockLcdFeed.RenderFrame(renderTarget);
     }

@@ -98,6 +98,8 @@ internal static class DockApi
     private static bool Frame(IMyCubeBlock block, out DockTrack t, out MatrixD world)
     {
         world = MatrixD.Identity;
+        t = null;
+        if (PlayGuard.Blocked) return false; // admin mode or AFK: nothing for other plugins either
         t = Track(block);
         return t?.Mine != null && block is MyCubeBlock cube && t.FrameFor(cube, out world);
     }
@@ -151,7 +153,7 @@ internal static class DockApi
     /// <summary>The Docking Assist for a screen on a ship into "sprites": rect = x, y (where on the surface), width, height.</summary>
     private static void DrawAssist(IMyCubeBlock block, Vector4 rect, bool live, object state, List<MySprite> sprites, IngameSurface surface)
     {
-        if (sprites == null || !(block is MyCubeBlock cube)) return;
+        if (sprites == null || PlayGuard.Blocked || !(block is MyCubeBlock cube)) return;
         try
         {
             var s = state as DockScreen ?? scratch;
@@ -164,7 +166,7 @@ internal static class DockApi
     /// <summary>The dock camera's guidance (crosshair, brackets, corridor, readouts) to lay over a live feed rendered with LensFovY.</summary>
     private static void DrawOverlay(IMyCubeBlock block, Vector4 rect, object state, List<MySprite> sprites, IngameSurface surface)
     {
-        if (sprites == null || !(block is MyCubeBlock cube)) return;
+        if (sprites == null || PlayGuard.Blocked || !(block is MyCubeBlock cube)) return;
         try { DockScreens.DrawFeed(canvas.Begin(sprites, new Vector2(rect.X, rect.Y), surface), cube, rect.Z, rect.W, state as DockScreen ?? scratch); }
         catch (Exception e) { Plugin.Log.Throttled("API DrawOverlay failed: " + e.Message); }
     }

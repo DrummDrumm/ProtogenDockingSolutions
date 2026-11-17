@@ -11,6 +11,16 @@ picture for frame rate.
 
 Client-side only: nothing is sent to the server, and other players see nothing.
 
+It switches itself off while you're in admin mode or AFK, as some servers' plugin rules require (SDX2's, for one).
+Admin mode means creative tools, any admin-menu toggle, the admin menu being open, or the spectator camera. AFK means
+no key, mouse or controller input for 30 s, and applies in multiplayer only. While it's off:
+- the dock camera stops, and you turn it back on yourself;
+- the picture-in-picture window is hidden;
+- Docking Assist screens show only "Docking Assist paused", with no live picture;
+- `/dock` commands, toolbar actions and API calls do nothing.
+
+The settings window still opens.
+
 ## Install
 
 Pulsar → Plugins → **Protogen Systems Docking Solutions** → enable, restart the game. For a local build, run

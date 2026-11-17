@@ -35,6 +35,7 @@ public class DockSession : MySessionComponentBase
         DockApi.Unload();
         DockCam.Reset();
         DockLcdFeed.Reset();
+        PlayGuard.Reset();
         DockConfig.External = null;
         base.UnloadData();
     }
@@ -67,6 +68,7 @@ internal static class DockCommand
 
     public static string Run(string[] args)
     {
+        if (PlayGuard.Blocked) return PlayGuard.Paused;
         if (args.Length == 0) return DockCam.Describe();
         string a = args[0].ToLowerInvariant();
         string rest = string.Join(" ", args.Skip(1));
@@ -146,6 +148,9 @@ internal static class DockCommand
 /// Docking toolbar actions on every cockpit and control block (vanilla or modded, anything that's a ship controller).
 /// Added on this PC only; a slot is saved as the action's id, so the ids keep their old names and existing
 /// toolbars keep working.
+/// The actions are made again for each world. Mods wrap the action objects they're given (Build Info replaces Writer
+/// with its own) and those wrappers die with their world. A kept action would call the last world's unloaded mod and
+/// crash the game, e.g. Build Info's "Digi.Log accessed after it was unloaded" in the next world's toolbar update.
 /// </summary>
 internal static class DockActions
 {
@@ -186,6 +191,7 @@ internal static class DockActions
     {
         if (!registered) return;
         try { MyAPIGateway.TerminalControls.CustomActionGetter -= AddActions; } catch { }
+        actions.Clear(); // new objects next world: see the class summary
         registered = false;
     }
 
@@ -215,7 +221,7 @@ internal static class DockActions
         a.Enabled = b => true;
         a.Action = b =>
         {
-            try { run(); }
+            try { if (PlayGuard.Blocked) DockCam.Say(PlayGuard.Paused); else run(); }
             catch (Exception e) { Plugin.Log.Throttled("toolbar action failed: " + e.Message); }
         };
         a.Writer = (b, sb) => { try { writer(sb); } catch { } };
@@ -229,7 +235,7 @@ internal static class GamePlayDrawPatch
 {
     private static void Postfix(bool __result)
     {
-        if (!__result) return;
+        if (!__result || PlayGuard.Blocked) return;
         if (DockCam.Showing) DockCam.Draw();
         DockPip.Draw();
     }

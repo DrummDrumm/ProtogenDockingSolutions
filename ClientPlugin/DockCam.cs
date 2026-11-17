@@ -282,7 +282,7 @@ internal static class DockCam
 
     private static void ControlCameraPostfix(MyCockpit __instance, MyCamera currentCamera)
     {
-        if (!Active || currentCamera == null) return;
+        if (!Active || currentCamera == null || PlayGuard.Blocked) return;
         if (!TryView(__instance, out var view)) return;
         currentCamera.SetViewMatrix(view);
         // no seat sway or shake on a camera bolted to the hull

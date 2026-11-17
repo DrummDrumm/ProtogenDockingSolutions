@@ -99,6 +99,18 @@ public class DockAssistScript : MyTSSCommon
         // this LCD's own look: a DockStyle=<style> line in its Custom Data (read again only when it changes)
         string cd = (m_block as IMyTerminalBlock)?.CustomData ?? "";
         if (!ReferenceEquals(cd, customData)) { customData = cd; screen.Style = DockStyles.FromCustomData(cd) ?? ""; }
+        if (PlayGuard.Blocked)
+        {
+            // admin mode or AFK: no guidance and no live picture, just why
+            sprites.Clear();
+            var line = MySprite.CreateText("Docking Assist paused\n" + PlayGuard.Reason, "White", new Color(160, 160, 160),
+                Math.Max(0.4f, Math.Min(view.Width, view.Height) / 400f), TextAlignment.CENTER);
+            line.Position = view.Position + new Vector2(view.Width / 2, view.Height / 2 - Math.Min(view.Width, view.Height) / 12);
+            sprites.Add(line);
+            using (var frame = m_surface.DrawFrame()) frame.AddRange(sprites);
+            DockLcdFeed.Live(this, false);
+            return;
+        }
         screen.Place = "lcd";
         DockScreens.Layout(screen, view.Width, view.Height);
         string feed = DockLcdFeed.For(cube, panel?.Area ?? 0, screen.ViewW, screen.ViewH);
