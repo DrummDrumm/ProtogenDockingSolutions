@@ -8,8 +8,8 @@ the new commit by hand, so the update reaches players only after that.
 
 | | |
 |---|---|
-| Plugin repository | https://github.com/ryancrimsonrd-ux/ProtogenDockingSolutions (`main`) |
-| Your hub fork | https://github.com/ryancrimsonrd-ux/PluginHub |
+| Plugin repository | https://github.com/DrummDrumm/ProtogenDockingSolutions (`main`) |
+| Your hub fork | https://github.com/DrummDrumm/PluginHub |
 | Hub | https://github.com/StarCpt/PluginHub |
 | First submission | https://github.com/StarCpt/PluginHub/pull/361 |
 
@@ -49,7 +49,7 @@ What it does, in order (it stops at the first failure, before anything is pushed
    **Create pull request**.
 
 **One-time setup for `gh`:** install it with `winget install --id GitHub.cli`, open a new terminal and run
-`gh auth login --web --git-protocol https`. `gh auth status` should show `ryancrimsonrd-ux`. A dry run says
+`gh auth login --web --git-protocol https`. `gh auth status` should show `DrummDrumm`. A dry run says
 whether the script will use `gh`.
 
 The script can't test the plugin in the game. Do that before you run it (see below).
@@ -65,7 +65,7 @@ The script can't test the plugin in the game. Do that before you run it (see bel
    `Api/`. If you publicize another game assembly, add it both to the `<Publicize>` entries in
    `ClientPlugin.csproj` and to `ClientPlugin/GameAssembliesToPublicize.cs`.
 4. **Commit and push** to `main`: `git commit -am "…"`, `git push`. Copy the full hash: `git rev-parse HEAD`.
-5. **Update your fork**: on https://github.com/ryancrimsonrd-ux/PluginHub click **Sync fork**, then make a
+5. **Update your fork**: on https://github.com/DrummDrumm/PluginHub click **Sync fork**, then make a
    branch, edit `Plugins/ProtogenDockingSolutions.xml` and change only `<Commit>` to the new hash.
 6. **Open a pull request** to `StarCpt/PluginHub` titled `Protogen Systems Docking Solutions 1.2.0`.
 7. Wait for the review and answer comments. If the reviewer asks for changes, fix them here, push, and
