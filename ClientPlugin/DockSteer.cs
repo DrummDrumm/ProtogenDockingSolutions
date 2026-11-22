@@ -24,6 +24,8 @@ namespace ProtogenDocking;
 /// always, they just say something else.
 /// </summary>
 [HarmonyPatch(typeof(MyShipController), nameof(MyShipController.MoveAndRotate), new[] { typeof(Vector3), typeof(Vector2), typeof(float) })]
+// before AutoDock's prefix on the same method: an autopilot that replaces the input always has the last word
+[HarmonyBefore("AutoDock")]
 internal static class DockSteer
 {
     // MyShipController.MoveAndRotate(): torque = -(ClampToSphere(rotation / 20, 1), roll * 0.2) in the seat's frame

@@ -235,7 +235,7 @@ internal static class DockPip
     private static void UpdateNear(MyCockpit cockpit)
     {
         var s = DockConfig.Current;
-        if (cockpit == null) { InRange = Near = DampInRange = false; return; }
+        if (cockpit == null || !Needed(s)) { InRange = Near = DampInRange = false; watch.Clear(); dockedOn = null; return; }
         double now = DockClock.Now;
         if (now < nextNear) return; // looked at twice a second
         nextNear = now + 0.5;
@@ -282,6 +282,10 @@ internal static class DockPip
     }
 
     private static double nextNear;
+
+    /// <summary>Something uses the range check: the PiP (on, near a dock, or auto in 3rd person), the dock camera or the dampener.
+    /// With all of them off, no scan for docks runs and the picked pair stays as it was.</summary>
+    private static bool Needed(DockSettings s) => s.PipOn || s.PipNear || s.Damp || DockCam.Active;
 
     // ------------------------------------------------------------------ undocking: the dampener's pause
 
