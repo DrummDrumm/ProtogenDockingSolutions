@@ -60,6 +60,9 @@ internal static class DockCommand
         "/dock style holo | tactical | bracket | glass | radial | classic | next (the Docking Assist's look)\n" +
         "/dock style full | pip | lcd <style> | next | same (a look for one place only; an LCD's Custom Data DockStyle=<style> beats it)\n" +
         "/dock offset <fwd> [<up> <right>] | reset (camera spot)\n" +
+        "/dock steer on | off (move and rotate relative to the full-screen dock camera)\n" +
+        "/dock damp on | off | speed <m/s> | accel <m/s2> (docking dampener)\n" +
+        "/dock ship save | global (this ship's own settings / the global ones)\n" +
         "/dock pip (picture-in-picture; /dock pip help)\n" +
         "/dock lcdcam on | off (live camera on Docking Assist LCDs)\n" +
         "/dock quality performance | balanced | quality | ultra | next\n" +
@@ -102,6 +105,9 @@ internal static class DockCommand
                 DockConfig.Change(s => s.TargetRange = r);
                 return "Docks are looked for within " + r.ToString("0", CultureInfo.InvariantCulture) + " m.";
             case "pip": return DockPip.Command(args.Skip(1).ToArray());
+            case "steer": return DockCam.Steer(false, args.Length > 1 ? args[1].ToLowerInvariant() : null);
+            case "damp": case "dampener": return DockCam.Damp(args.Skip(1).ToArray());
+            case "ship": return DockConfig.ShipCommand(args.Length > 1 ? args[1] : null);
             case "lcdcam": case "lcdfeed":
             {
                 bool on = args.Length < 2 ? !DockConfig.Current.LcdFeed : !(args[1].Equals("off", StringComparison.OrdinalIgnoreCase) || args[1] == "0");
@@ -179,6 +185,16 @@ internal static class DockActions
                 sb => sb.Append(DockConfig.Current.PipCorner.ToUpperInvariant()));
             Add(tc, "Protogen_DockPipMode", "Dock PiP: dock camera / Docking Assist", "Toggle", () => DockCam.Say(DockPip.ToggleMode()),
                 sb => sb.Append(DockConfig.Current.PipMode == "assist" ? "Asst" : "Cam"));
+            Add(tc, "Protogen_DockSteerView", "Dock Camera: steer from the camera on / off (the view that's up)", "Toggle", () => DockCam.Say(DockCam.SteerView()),
+                sb => sb.Append(SteerShort()));
+            Add(tc, "Protogen_DockSteer", "Dock Camera: steer from the full-screen camera on / off", "Toggle", () => DockCam.Say(DockCam.Steer(false, null)),
+                sb => sb.Append(DockConfig.Current.SteerFull ? "Steer" : "Seat"));
+            Add(tc, "Protogen_DockPipSteer", "Dock PiP: steer from the PiP camera on / off", "Toggle", () => DockCam.Say(DockCam.Steer(true, null)),
+                sb => sb.Append(DockConfig.Current.SteerPip ? "Steer" : "Seat"));
+            Add(tc, "Protogen_DockDamp", "Docking dampener on / off (speed and acceleration limits while docking)", "Toggle", () => DockCam.Say(DockCam.Damp(new string[0])),
+                sb => sb.Append(DockConfig.Current.Damp ? "Damp" : "Off"));
+            Add(tc, "Protogen_DockDampAuto", "Docking dampener Auto on / off (slower as the dock gets closer)", "Toggle", () => DockCam.Say(DockCam.Damp(new[] { "auto" })),
+                sb => sb.Append(DockConfig.Current.Damp && DockConfig.Current.DampAuto ? "Auto" : "Fixed"));
             Add(tc, "Protogen_DockPipEdit", "Dock PiP: move / resize with the mouse", "Start", () => DockCam.Say(DockPip.Edit()), sb => sb.Append("Edit"));
             Add(tc, "Protogen_DockQuality", "Docking: next quality preset (performance / balanced / quality / ultra)", "Increase", () => DockCam.Say(DockCommand.Quality("next")),
                 sb => sb.Append(QualityShort()));
@@ -193,6 +209,14 @@ internal static class DockActions
         try { MyAPIGateway.TerminalControls.CustomActionGetter -= AddActions; } catch { }
         actions.Clear(); // new objects next world: see the class summary
         registered = false;
+    }
+
+    private static string SteerShort()
+    {
+        var s = DockConfig.Current;
+        if (s.SteerAuto) return DockSteer.IsDocking && DockSteer.SteerFor(false) ? "Steer" : "Auto";
+        bool on = DockCam.Showing ? s.SteerFull : DockSteer.PipUp ? s.SteerPip : s.SteerFull || s.SteerPip;
+        return on ? "Steer" : "Seat";
     }
 
     private static string QualityShort()

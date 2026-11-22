@@ -49,13 +49,52 @@ public sealed class DockSettings
     public string PipMode = "cam";
     /// <summary>The PiP comes up by itself while the full-screen dock camera is paused in third person.</summary>
     public bool PipAuto = true;
+    /// <summary>The PiP comes up by itself while your connector is within PipNearRange metres of a dock (and not connected).</summary>
+    public bool PipNear;
+    public float PipNearRange = 50;
+    /// <summary>
+    /// Seconds after docking (your connector connects) before the dock camera and PiP switch off: 0 = straight away,
+    /// up to DockedOffMax; -1 = never, they stay up on the docked pair. LCD feeds aren't affected.
+    /// </summary>
+    public float DockedOff = 3;
+    public const float DockedOffMax = 60;
     /// <summary>What the full-screen dock camera shows: "cam" = the camera view with its guidance; "assist" = the
     /// Docking Assist across the screen with the live picture in its view box.</summary>
     public string CamMode = "cam";
+    /// <summary>While the full-screen dock camera is up, your move and rotate input is relative to where it looks.</summary>
+    public bool SteerFull;
+    /// <summary>While the PiP is up, your move and rotate input is relative to where its camera looks.</summary>
+    public bool SteerPip;
+    /// <summary>A key that switches steering from the camera for the view that's up, e.g. "Ctrl+Alt+K" ("" = none).</summary>
+    public string SteerKey = "";
+    /// <summary>
+    /// Steering from the camera switches itself on as soon as you're docking (a dock in range with the view up) and off
+    /// when docking ends, with a warning on screen. Off: SteerFull / SteerPip are switched on by hand and switch
+    /// themselves off when docking ends.
+    /// </summary>
+    public bool SteerAuto;
+    /// <summary>With SteerAuto: the PiP steers by itself too (off = Auto only in the full-screen dock camera).</summary>
+    public bool SteerAutoPip = true;
+    /// <summary>Docking dampener: while docking, a key you hold asks for a speed (up to DampSpeed) and never pushes harder
+    /// than DampAccel, relative to the dock's ship or station. Keys you don't press are left to the game.</summary>
+    public bool Damp;
+    public float DampSpeed = 5, DampAccel = 2;
+    /// <summary>The dampener's limits come down as the dock gets closer, to the safe speed the assist advises.</summary>
+    public bool DampAuto;
+    /// <summary>
+    /// After one of your connectors lets go (undocking), the dampener stays off for this many seconds (0 = no pause, up
+    /// to DampUndockMax); -1 = until you're out of range of every dock, so it only works on the way in.
+    /// </summary>
+    public float DampUndock;
+    public const float DampUndockMax = 120;
+    public const float DampSpeedMin = 0.5f, DampSpeedMax = 200, DampAccelMin = 0.1f, DampAccelMax = 50;
     /// <summary>The Docking Assist's look (DockStyles.Names): holo, ... or classic.</summary>
     public string AssistStyle = DockStyles.Default;
     /// <summary>The look in one place (full-screen dock camera, PiP, LCDs); "" = AssistStyle.</summary>
     public string FullStyle = "", PipStyle = "", LcdStyle = "";
+
+    /// <summary>The PiP pop-up range's limits, in metres.</summary>
+    public const float NearMin = 5, NearMax = 300;
 
     public static string NormPipMode(string v)
     {
@@ -122,8 +161,30 @@ public sealed class DockSettings
         sb.AppendLine("PipMode=" + PipMode);
         sb.AppendLine("; PipAuto = the PiP comes up by itself while the full-screen dock camera is in third person");
         sb.AppendLine("PipAuto=" + (PipAuto ? "on" : "off"));
+        sb.AppendLine("; PipNear = the PiP comes up by itself while your connector is within PipNearRange metres of a dock");
+        sb.AppendLine("PipNear=" + (PipNear ? "on" : "off"));
+        sb.AppendLine("PipNearRange=" + PipNearRange.ToString("0", CultureInfo.InvariantCulture));
+        sb.AppendLine("; DockedOff = seconds after docking before the dock camera and PiP switch off (0-60), or never (they stay up)");
+        sb.AppendLine("DockedOff=" + (DockedOff < 0 ? "never" : DockedOff.ToString("0", CultureInfo.InvariantCulture)));
         sb.AppendLine("; CamMode = what the full-screen dock camera shows: cam | assist (the Docking Assist with the live picture)");
         sb.AppendLine("CamMode=" + CamMode);
+        sb.AppendLine("; SteerFull / SteerPip = while that view is up, move and rotate are relative to where the dock camera looks");
+        sb.AppendLine("SteerFull=" + (SteerFull ? "on" : "off"));
+        sb.AppendLine("SteerPip=" + (SteerPip ? "on" : "off"));
+        sb.AppendLine("; SteerKey = a key that switches steering from the camera for the view that's up, e.g. Ctrl+Alt+K (empty = none)");
+        sb.AppendLine("SteerKey=" + SteerKey);
+        sb.AppendLine("; SteerAuto = steering from the camera switches on by itself as soon as a dock is in range with the view up (with a warning), and off when docking ends");
+        sb.AppendLine("SteerAuto=" + (SteerAuto ? "on" : "off"));
+        sb.AppendLine("; SteerAutoPip = with SteerAuto, the PiP steers by itself too (off = only the full-screen dock camera)");
+        sb.AppendLine("SteerAutoPip=" + (SteerAutoPip ? "on" : "off"));
+        sb.AppendLine("; Damp = docking dampener: while docking, the keys you press are held within DampSpeed (m/s, 0.5-200) and DampAccel (m/s2, 0.1-50)");
+        sb.AppendLine("Damp=" + (Damp ? "on" : "off"));
+        sb.AppendLine("DampSpeed=" + DampSpeed.ToString("0.##", CultureInfo.InvariantCulture));
+        sb.AppendLine("DampAccel=" + DampAccel.ToString("0.##", CultureInfo.InvariantCulture));
+        sb.AppendLine("; DampAuto = the dampener's limits come down as the dock gets closer, to the safe speed the assist advises (never above DampSpeed / DampAccel)");
+        sb.AppendLine("DampAuto=" + (DampAuto ? "on" : "off"));
+        sb.AppendLine("; DampUndock = seconds the dampener stays off after a connector lets go (0 = no pause, up to 120), or 'range' = until out of range");
+        sb.AppendLine("DampUndock=" + (DampUndock < 0 ? "range" : DampUndock.ToString("0", CultureInfo.InvariantCulture)));
         sb.AppendLine("; AssistStyle = the Docking Assist's look: " + string.Join(" | ", DockStyles.Names));
         sb.AppendLine("AssistStyle=" + AssistStyle);
         sb.AppendLine("; FullStyle / PipStyle / LcdStyle = a look for the full-screen dock camera / the PiP / the LCDs only; empty = AssistStyle");
@@ -187,7 +248,26 @@ public sealed class DockSettings
                 case "PipOverlay": if (TryBool(v, out var ov)) s.PipOverlay = ov; break;
                 case "PipMode": s.PipMode = NormPipMode(v) ?? "cam"; break;
                 case "PipAuto": if (TryBool(v, out var pa)) s.PipAuto = pa; break;
+                case "PipNear": if (TryBool(v, out var pn)) s.PipNear = pn; break;
+                case "PipNearRange": if (Num(v, out var pr)) s.PipNearRange = DockPipLayout.Clamp(pr, NearMin, NearMax); break;
+                case "DockedOff":
+                    if (v.Equals("never", StringComparison.OrdinalIgnoreCase) || v.Equals("keep", StringComparison.OrdinalIgnoreCase)) s.DockedOff = -1;
+                    else if (Num(v, out var dof)) s.DockedOff = dof < 0 ? -1 : DockPipLayout.Clamp((float)Math.Round(dof), 0, DockedOffMax);
+                    break;
                 case "CamMode": s.CamMode = NormPipMode(v) ?? "cam"; break;
+                case "SteerFull": if (TryBool(v, out var sf)) s.SteerFull = sf; break;
+                case "SteerPip": if (TryBool(v, out var sp)) s.SteerPip = sp; break;
+                case "SteerKey": s.SteerKey = DockKeys.Norm(v); break;
+                case "SteerAuto": if (TryBool(v, out var sau)) s.SteerAuto = sau; break;
+                case "SteerAutoPip": if (TryBool(v, out var sap)) s.SteerAutoPip = sap; break;
+                case "Damp": if (TryBool(v, out var dm)) s.Damp = dm; break;
+                case "DampAuto": if (TryBool(v, out var dau)) s.DampAuto = dau; break;
+                case "DampUndock":
+                    if (v.Equals("range", StringComparison.OrdinalIgnoreCase)) s.DampUndock = -1;
+                    else if (Num(v, out var dun)) s.DampUndock = dun < 0 ? -1 : DockPipLayout.Clamp((float)Math.Round(dun), 0, DampUndockMax);
+                    break;
+                case "DampSpeed": if (Num(v, out var ds)) s.DampSpeed = DockPipLayout.Clamp(ds, DampSpeedMin, DampSpeedMax); break;
+                case "DampAccel": if (Num(v, out var da)) s.DampAccel = DockPipLayout.Clamp(da, DampAccelMin, DampAccelMax); break;
                 case "AssistStyle": s.AssistStyle = DockStyles.Norm(v) ?? DockStyles.Default; break;
                 case "FullStyle": s.FullStyle = DockStyles.Norm(v) ?? ""; break;
                 case "PipStyle": s.PipStyle = DockStyles.Norm(v) ?? ""; break;

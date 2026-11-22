@@ -24,7 +24,6 @@ namespace ProtogenDocking;
 /// </summary>
 internal static class DockCam
 {
-    private const double LockedHold = 2.5;
     private static readonly Harmony harmony = new Harmony("ProtogenDockingSolutions.DockCam");
     private static bool patched;
 
@@ -35,7 +34,6 @@ internal static class DockCam
     public static DockTrack Track { get; private set; }
     private static long cockpitId;
     private static bool? wasFirstPerson;
-    private static double lockedAt;
     private static DockReading reading;
     private static readonly DockScreen screen = new DockScreen();
     private static readonly SpriteListCanvas canvas = new SpriteListCanvas();
@@ -76,7 +74,6 @@ internal static class DockCam
         try { wasFirstPerson = cockpit.IsInFirstPersonView; cockpit.IsInFirstPersonView = true; } catch { wasFirstPerson = null; }
         Active = true;
         Suspended = false;
-        lockedAt = 0;
         return "Dock camera: " + Pair() + ". Third person (V) pauses it.";
     }
 
@@ -204,14 +201,8 @@ internal static class DockCam
                 if (third) { try { if (MySector.MainCamera != null) MySector.MainCamera.CameraSpring.Enabled = true; } catch { } }
                 Say(third ? "Dock camera paused (third person). First person to go back." : "Dock camera");
             }
-            double now = DockClock.Now;
             Track.Tick();
-            if (mine.Connected)
-            {
-                if (lockedAt == 0) lockedAt = now;
-                else if (now - lockedAt > LockedHold) { Say(Stop("Docked - dock camera off.")); return; }
-            }
-            else lockedAt = 0;
+            // docked: DockPip switches the views off after Views off after docking (DockedOff)
         }
         catch (Exception e) { Plugin.Log.Throttled("dock camera update failed: " + e.Message); }
     }
@@ -222,6 +213,75 @@ internal static class DockCam
     {
         world = MatrixD.Identity;
         return Track != null && Track.Frame(cockpit.WorldMatrix.Up, cockpit.WorldMatrix.Forward, out world);
+    }
+
+    /// <summary>The full-screen dock camera's world matrix for this cockpit (the seat it was started from only).</summary>
+    internal static bool FrameOf(MyCockpit cockpit, out MatrixD world)
+    {
+        world = MatrixD.Identity;
+        return Active && cockpit != null && cockpit.EntityId == cockpitId && Frame(cockpit, out world);
+    }
+
+    /// <summary>The steer key and toolbar action: steering for the view that's up (full screen, else the PiP; neither: both).</summary>
+    public static string SteerView()
+    {
+        if (DockConfig.Current.SteerAuto) return DockSteer.ToggleAuto();
+        if (Showing) return Steer(false, null);
+        if (DockSteer.PipUp) return Steer(true, null);
+        var s = DockConfig.Current;
+        bool on = !(s.SteerFull && s.SteerPip);
+        DockConfig.Change(x => { x.SteerFull = on; x.SteerPip = on; });
+        return on ? "Steering from the dock camera on (full screen and PiP)." : "Steering from the dock camera off (full screen and PiP).";
+    }
+
+    public static string Steer(bool pip, string arg)
+    {
+        var s = DockConfig.Current;
+        if (arg == "auto" || arg == "autofull" || arg == "manual")
+        {
+            DockConfig.Change(x => { x.SteerAuto = arg != "manual"; if (arg != "manual") x.SteerAutoPip = arg == "auto"; });
+            return arg == "auto"
+                ? "Steering from the camera on Auto. Warning: your controls change by themselves as soon as a dock is in range with the dock camera or PiP up."
+                : arg == "autofull"
+                ? "Steering from the camera on Auto in the full-screen dock camera only. Warning: your controls change by themselves when it's up and a dock is in range."
+                : "Steering from the camera by hand: switch it on while docking; it switches off when docking ends.";
+        }
+        if (s.SteerAuto && arg == null) return DockSteer.ToggleAuto();
+        bool cur = pip ? s.SteerPip : s.SteerFull;
+        bool on = DockSettings.TryBool(arg ?? "", out var b) ? b : !cur;
+        DockConfig.Change(x => { if (pip) x.SteerPip = on; else x.SteerFull = on; });
+        string where = pip ? "the PiP" : "the full-screen dock camera";
+        return on ? "Steering from " + where + ": while docking, W flies the way it looks and the mouse turns about its axes. It switches off when docking ends." +
+                    (s.SteerAuto ? " (Auto is on: /dock steer manual to use this.)" : "")
+                  : "Steering from " + where + " off: the seat's own controls.";
+    }
+
+    /// <summary>/dock damp [on | off | auto [on | off] | speed &lt;m/s&gt; | accel &lt;m/s2&gt;]</summary>
+    public static string Damp(string[] args)
+    {
+        string a = args.Length > 0 ? args[0].ToLowerInvariant() : "";
+        string b = args.Length > 1 ? args[1] : "";
+        if ((a == "speed" || a == "accel") && float.TryParse(b, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float n))
+        {
+            if (a == "speed") DockConfig.Change(x => { x.Damp = true; x.DampSpeed = DockPipLayout.Clamp(n, DockSettings.DampSpeedMin, DockSettings.DampSpeedMax); });
+            else DockConfig.Change(x => { x.Damp = true; x.DampAccel = DockPipLayout.Clamp(n, DockSettings.DampAccelMin, DockSettings.DampAccelMax); });
+        }
+        else if (a == "auto")
+        {
+            bool au = DockSettings.TryBool(b, out var av) ? av : !DockConfig.Current.DampAuto;
+            DockConfig.Change(x => { x.DampAuto = au; if (au) x.Damp = true; });
+        }
+        else if (a != "status")
+        {
+            bool on = DockSettings.TryBool(a, out var v) ? v : !DockConfig.Current.Damp;
+            DockConfig.Change(x => x.Damp = on);
+        }
+        var s = DockConfig.Current;
+        return s.Damp
+            ? "Docking dampener on: while docking, up to " + s.DampSpeed.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m/s and " +
+              s.DampAccel.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m/s\u00b2 on the keys you press (letting go is left to the game's dampeners)" +
+              (s.DampAuto ? ", Auto: slower as the dock gets closer, at the assist's safe speed." : ".") + " /dock damp auto | speed <m/s> | accel <m/s2> | off"
+            : "Docking dampener off. /dock damp on | auto | speed <m/s> | accel <m/s2>";
     }
 
     /// <summary>Called by the camera patch: the view matrix for this cockpit, while the dock camera is on and you're in first person.</summary>
@@ -371,7 +431,6 @@ internal static class DockCam
     public static void Reset()
     {
         Stop("");
-        lockedAt = 0;
         DockTrack.Reset();
     }
 }

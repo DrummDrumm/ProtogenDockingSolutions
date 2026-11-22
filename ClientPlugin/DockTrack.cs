@@ -90,7 +90,8 @@ internal sealed class DockTrack
             var keep = Mine;
             FindMine(false);
             // stay on the same connector unless a better one turns up (one marked [Dock], or one that can connect)
-            Mine = keep != null && MineList.Contains(keep) && Rank(MineList[0]) >= Rank(keep) ? keep : MineList.FirstOrDefault();
+            Mine = keep != null && MineList.Contains(keep) && (Rank(MineList[0]) >= Rank(keep) || (!keep.Connected && MineList[0].Connected))
+                ? keep : MineList.FirstOrDefault();
             MineIndex = Math.Max(0, MineList.IndexOf(Mine));
             nextScan = 0;
         }
@@ -119,6 +120,63 @@ internal sealed class DockTrack
         }
         var sorted = MineList.OrderBy(Rank).ThenBy(Best).ToList();
         MineList.Clear(); MineList.AddRange(sorted);
+    }
+
+    /// <summary>
+    /// The closest pair of a free connector of yours (on the ship or its subgrids) and a dock it could go to, within range.
+    /// Every free connector counts, not only the one picked as yours.
+    /// </summary>
+    public bool ClosestFree(double range, out MyShipConnector mine, out MyShipConnector dock, out double distance)
+    {
+        mine = dock = null;
+        distance = double.MaxValue;
+        if (Group.Count == 0) RefreshGroup();
+        var free = new List<MyShipConnector>();
+        foreach (var g in GroupGrids())
+            foreach (var c in g.GetFatBlocks().OfType<MyShipConnector>())
+                if (c.IsWorking && !c.Connected && IsConnectorMode(c) && !Ignored(c)) free.Add(c);
+        if (free.Count == 0) return false;
+        var docks = Candidates(Grid.PositionComp.WorldAABB.Center, Grid.PositionComp.WorldVolume.Radius + range, new HashSet<long>(Group) { Grid.EntityId }, null);
+        foreach (var c in free)
+        {
+            var p = c.ConstraintPositionWorld();
+            foreach (var o in docks)
+            {
+                if (o.IsSmallConnector != c.IsSmallConnector) continue;
+                double d = Vector3D.Distance(p, o.ConstraintPositionWorld());
+                if (d < distance) { distance = d; mine = c; dock = o; }
+            }
+        }
+        return mine != null && distance <= range;
+    }
+
+    /// <summary>The connectors of yours (ship and subgrids) that are connected right now, into the list.</summary>
+    public void ConnectedNow(List<MyShipConnector> into)
+    {
+        into.Clear();
+        if (Group.Count == 0) RefreshGroup();
+        foreach (var g in GroupGrids())
+            foreach (var c in g.GetFatBlocks().OfType<MyShipConnector>())
+                if (c.Connected && !Ignored(c)) into.Add(c);
+    }
+
+    /// <summary>Use this connector as yours and that dock as the target (when nobody picked by hand).</summary>
+    public void Use(MyShipConnector mine, MyShipConnector dock)
+    {
+        if (!AutoPick || mine == null) return;
+        if (Mine != mine)
+        {
+            Mine = mine;
+            if (!MineList.Contains(mine)) MineList.Insert(0, mine);
+            MineIndex = Math.Max(0, MineList.IndexOf(mine));
+            nextFind = DockClock.Now + Refind;
+            Scan();
+        }
+        if (dock != null && Target != dock && Targets.Contains(dock))
+        {
+            Target = dock;
+            TargetIndex = Targets.IndexOf(dock);
+        }
     }
 
     /// <summary>0 = the dock tag ([Dock]) in its name, 1 = connected, 2 = can connect, 3 = the rest.</summary>

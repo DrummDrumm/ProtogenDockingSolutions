@@ -77,7 +77,44 @@ internal static partial class Program
         Check(pd.PipMode == "cam" && pd.PipAuto, "pip mode: dock camera and auto by default");
         var pm = DockSettings.Parse(new DockSettings { PipMode = "assist", PipAuto = false }.Write());
         Check(pm.PipMode == "assist" && !pm.PipAuto, "pip mode: written and read back");
+        Check(!pd.SteerFull && !pd.SteerPip, "steer from the camera: both off by default");
+        Check(pd.DockedOff == 3 && DockSettings.Parse(new DockSettings { DockedOff = -1 }.Write()).DockedOff == -1
+              && DockSettings.Parse("DockedOff=500").DockedOff == 60 && DockSettings.Parse("DockedOff=keep").DockedOff == -1, "views off after docking: 3 s default, never, clamped");
+        Check(pd.DampUndock == 0 && DockSettings.Parse(new DockSettings { DampUndock = -1 }.Write()).DampUndock == -1
+              && DockSettings.Parse("DampUndock=999").DampUndock == 120 && DockSettings.Parse("DampUndock=15").DampUndock == 15, "dampener pause after undocking: none by default, range, clamped");
+        Check(pd.SteerAutoPip && !DockSettings.Parse(new DockSettings { SteerAutoPip = false }.Write()).SteerAutoPip, "steer auto in the PiP: on by default, written and read back");
+        Check(!pd.SteerAuto && DockSettings.Parse(new DockSettings { SteerAuto = true }.Write()).SteerAuto, "steer auto: off by default, written and read back");
+        var st = DockSettings.Parse(new DockSettings { SteerFull = true }.Write());
+        var sp2 = DockSettings.Parse(new DockSettings { SteerPip = true }.Write());
+        Check(st.SteerFull && !st.SteerPip && sp2.SteerPip && !sp2.SteerFull, "steer from the camera: each toggle written and read back on its own");
+        Check(!pd.Damp && pd.DampSpeed == 5 && pd.DampAccel == 2, "docking dampener: off by default, 5 m/s and 2 m/s2");
+        var dp = DockSettings.Parse(new DockSettings { Damp = true, DampSpeed = 2.5f, DampAccel = 0.8f }.Write());
+        Check(dp.Damp && Math.Abs(dp.DampSpeed - 2.5f) < 0.01f && Math.Abs(dp.DampAccel - 0.8f) < 0.01f, "docking dampener: written and read back");
+        var dc = DockSettings.Parse("DampSpeed=900\nDampAccel=0");
+        var dw = DockSettings.Parse("DampSpeed=150\nDampAccel=40");
+        Check(dw.DampSpeed == 150 && dw.DampAccel == 40, "docking dampener: wide limits (150 m/s, 40 m/s2) kept");
+        Check(!pd.DampAuto && DockSettings.Parse(new DockSettings { DampAuto = true }.Write()).DampAuto, "dampener auto: off by default, written and read back");
+        bool underRed = true, slower = true;
+        double lastS = double.MaxValue, lastA = double.MaxValue;
+        for (double rg = 200; rg >= 0; rg -= 0.5)
+        {
+            double sp = DockGuide.AutoSpeed(rg, 50), ac = DockGuide.AutoAccel(rg, 50);
+            if (sp * DockGuide.OverFactor >= DockGuide.SafeSpeed(rg) * DockGuide.RedFactor || sp > DockGuide.SafeSpeed(rg)) underRed = false;
+            if (sp > lastS + 1e-9 || ac > lastA + 1e-9) slower = false;
+            lastS = sp; lastA = ac;
+        }
+        Check(underRed, "dampener auto: its limit (and where it brakes hard) stays under the assist's red SLOW DOWN at every range");
+        Check(slower, "dampener auto: the speed and acceleration limits only come down as the dock gets closer");
+        Check(Math.Abs(DockGuide.AutoSpeed(150, 50) - 10) < 1e-9 && Math.Abs(DockGuide.AutoSpeed(0.2, 50) - 0.5) < 1e-9 && DockGuide.AutoSpeed(150, 3) == 3
+              && DockGuide.AutoAccel(150, 1) == 1, "dampener auto: 10 m/s far out, 0.5 m/s at the end, never above your own limits");
+        Check(dc.DampSpeed == DockSettings.DampSpeedMax && dc.DampAccel == DockSettings.DampAccelMin, "docking dampener: limits kept within range");
+        Check(DockKeys.Norm(" alt + ctrl+K ") == "Ctrl+Alt+K" && DockKeys.Norm("F6") == "F6" && DockKeys.Norm("Ctrl+") == "" && DockKeys.Norm("K+L") == "", "steer key: bindings read and written the usual way");
+        Check(new DockSettings().SteerKey == "" && DockSettings.Parse(new DockSettings { SteerKey = "Shift+NumPad5" }.Write()).SteerKey == "Shift+NumPad5", "steer key: none by default, written and read back");
         Check(DockSettings.Parse("PipMode=nonsense").PipMode == "cam" && DockSettings.NormPipMode("Docking") == "assist", "pip mode: unknown falls back, names accepted");
+        var pn = DockSettings.Parse(new DockSettings { PipNear = true, PipNearRange = 120 }.Write());
+        Check(!new DockSettings().PipNear && pn.PipNear && pn.PipNearRange == 120, "pip near a dock: off by default, written and read back");
+        Check(DockSettings.Parse("PipNearRange=1").PipNearRange == DockSettings.NearMin && DockSettings.Parse("PipNearRange=99999").PipNearRange == DockSettings.NearMax,
+              "pip near a dock: range kept within its limits");
         Check(new DockSettings().CamMode == "cam" && DockSettings.Parse(new DockSettings { CamMode = "assist" }.Write()).CamMode == "assist", "dock cam mode: default and round trip");
         Check(new DockSettings().AssistStyle == "holo" && DockSettings.Parse(new DockSettings { AssistStyle = "classic" }.Write()).AssistStyle == "classic"
               && DockSettings.Parse("AssistStyle=nonsense").AssistStyle == "holo" && DockStyles.Next("radial") == "classic" && DockStyles.Short("classic") == "Clas",

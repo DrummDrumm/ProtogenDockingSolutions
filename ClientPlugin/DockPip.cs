@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using HarmonyLib;
 using Sandbox.Game.Entities;
+using Sandbox.Game.Entities.Cube;
 using Sandbox.Game.Gui;
 using Sandbox.Game.World;
 using Sandbox.Graphics;
@@ -67,7 +68,8 @@ internal static class DockPip
         DockConfig.Change(s => s.PipOn = on);
         if (!on) { Clear(); return "Dock PiP off."; }
         if (failed != null) return failed;
-        return "Dock PiP on (" + DockPipLayout.CornerName(Layout.PipCorner) + ", " + DockConfig.Current.Quality + "). /dock pip edit to move or resize it.";
+        return "Dock PiP on (" + DockPipLayout.CornerName(Layout.PipCorner) + ", " + DockConfig.Current.Quality + "): it shows while a dock is within " +
+               Range.ToString("0", CultureInfo.InvariantCulture) + " m of a free connector of yours. /dock pip edit to move or resize it.";
     }
 
     public const string Usage =
@@ -78,6 +80,8 @@ internal static class DockPip
         "/dock pip aspect 16:9 | 4:3 | 1:1 | <w/h> | overlay on | off\n" +
         "/dock pip mode cam | assist | next (dock camera / Docking Assist)\n" +
         "/dock pip auto on | off (PiP while the dock camera is in 3rd person)\n" +
+        "/dock pip near on | off | <metres> (PiP pops up when your connector comes that close to a dock)\n" +
+        "/dock pip steer on | off (move and rotate relative to the PiP's camera)\n" +
         "/dock pip fps <5-60> | res <180-1080> | effects on | off";
 
     public static string Command(string[] args)
@@ -134,6 +138,21 @@ internal static class DockPip
                 bool au = DockSettings.TryBool(b, out var ab) ? ab : !s.PipAuto;
                 DockConfig.Change(x => x.PipAuto = au);
                 return au ? "The PiP comes up by itself while the dock camera is in third person." : "The PiP no longer comes up by itself in third person.";
+            case "steer": return DockCam.Steer(true, b == "" ? null : b);
+            case "near": case "proximity":
+            {
+                if (float.TryParse(b, NumberStyles.Float, CultureInfo.InvariantCulture, out float m))
+                {
+                    m = DockPipLayout.Clamp(m, DockSettings.NearMin, DockSettings.NearMax);
+                    DockConfig.Change(x => { x.PipNear = true; x.PipNearRange = m; });
+                }
+                else
+                {
+                    bool nr = DockSettings.TryBool(b, out var nb) ? nb : !s.PipNear;
+                    DockConfig.Change(x => x.PipNear = nr);
+                }
+                return NearText();
+            }
             case "edit": case "adjust": case "mouse": case "window": case "drag": case "resize": return Edit();
             case "reset":
                 DockConfig.Change(x => x.ResetPipLayout());
@@ -177,14 +196,146 @@ internal static class DockPip
         return "Dock camera shows " + ModeName(m) + ".";
     }
 
-    /// <summary>Shown this frame: switched on, or by itself while the full-screen dock camera is paused in third person.</summary>
-    public static bool Wanted => On || (DockConfig.Current.PipAuto && DockCam.Active && DockCam.Suspended);
+    /// <summary>Shown this frame: switched on, by itself while the full-screen dock camera is paused in third person, or
+    /// by itself while your connector is near a dock; in every case only while a dock is in range (InRange).</summary>
+    public static bool Wanted => InRange && (On || (DockConfig.Current.PipAuto && DockCam.Active && DockCam.Suspended) || Near);
+
+    /// <summary>Your connector is within the pop-up range of a dock (PipNear), updated at the start of each Draw.</summary>
+    public static bool Near { get; private set; }
+
+    /// <summary>
+    /// A free connector of yours is within range of a dock: the pop-up range with Up by itself near a dock on, else
+    /// Look for docks within. The PiP, steering from the camera and the dampener only work while it is.
+    /// </summary>
+    public static bool InRange { get; private set; }
+
+    /// <summary>A free connector of yours is within the pop-up range (PipNearRange) of a dock: the dampener works.</summary>
+    public static bool DampInRange { get; private set; }
+    /// <summary>That pair, for the dampener (auto limits by its range, speeds against the dock's grid).</summary>
+    public static MyShipConnector DampMine { get; private set; }
+    public static MyShipConnector DampDock { get; private set; }
+
+    /// <summary>The range InRange uses, in metres.</summary>
+    public static double Range => DockConfig.Current.PipNear ? DockConfig.Current.PipNearRange : DockConfig.Current.TargetRange;
+
+    public static string NearText()
+    {
+        var s = DockConfig.Current;
+        return s.PipNear
+            ? "The PiP pops up when your connector is within " + s.PipNearRange.ToString("0", CultureInfo.InvariantCulture) + " m of a dock" +
+              (s.PipNearRange > s.TargetRange ? " (docks are only looked for within " + s.TargetRange.ToString("0", CultureInfo.InvariantCulture) + " m)." : ".")
+            : "The PiP no longer pops up near a dock.";
+    }
+
+    /// <summary>
+    /// In range and the pop-up: any free connector of yours (the one picked as yours may be another, or already
+    /// connected) closer to a dock than the range. It goes out of range a little further out than it came in, so it
+    /// doesn't flicker at the edge, and once you're connected (no free connector near a dock).
+    /// </summary>
+    private static void UpdateNear(MyCockpit cockpit)
+    {
+        var s = DockConfig.Current;
+        if (cockpit == null) { InRange = Near = DampInRange = false; return; }
+        double now = DockClock.Now;
+        if (now < nextNear) return; // looked at twice a second
+        nextNear = now + 0.5;
+        var t = DockTrack.For(cockpit.CubeGrid);
+        if (t == null) { InRange = Near = DampInRange = false; watch.Clear(); return; }
+        Released(t, now);
+        // docked: a connector you were docking with has connected
+        if (dockedOn == null)
+            foreach (var c in watch)
+                if (!c.Closed && c.Connected) { dockedOn = c; dockedAt = now; dockedDone = false; break; }
+        watch.Clear();
+        if (dockedOn != null)
+        {
+            if (!dockedOn.Closed && dockedOn.Connected)
+            {
+                // after Views off after docking the dock camera and PiP switch off; until then (or with never) they stay
+                // on the docked pair. Either way they don't move on to the next free connector until it lets go.
+                float off = s.DockedOff;
+                if (!dockedDone && off >= 0 && now - dockedAt >= off) { Docked(); dockedDone = true; }
+                if (dockedDone) InRange = Near = false;
+                DampInRange = false;
+                return;
+            }
+            dockedOn = null;
+            dockedDone = false;
+            InRange = Near = false;
+        }
+        double range = Range, dampRange = s.PipNearRange;
+        double inR = InRange ? range + Math.Max(5, range * 0.2) : range, dampR = DampInRange ? dampRange + Math.Max(5, dampRange * 0.2) : dampRange;
+        t.ClosestFree(Math.Max(inR, dampR), out var mine, out var dock, out double dist);
+        InRange = mine != null && dist <= inR;
+        // the dampener: within the pop-up range (Up by itself near a dock), whether or not a view is up
+        DampInRange = mine != null && dist <= dampR;
+        DampMine = DampInRange ? mine : null;
+        DampDock = DampInRange ? dock : null;
+        if (!DampInRange) releasedInRange = false; // Until out of range: works again on the next way in
+        Near = InRange && s.PipNear && !s.PipOn;
+        // show that pair
+        if (InRange) t.Use(mine, dock);
+        // the free connectors you're docking with: when one of them connects, you've docked
+        if (InRange || DockCam.Active)
+            foreach (var c in new[] { mine, t.Mine, DockCam.Track?.Mine })
+                if (c != null && !c.Connected && !watch.Contains(c)) watch.Add(c);
+    }
+
+    private static double nextNear;
+
+    // ------------------------------------------------------------------ undocking: the dampener's pause
+
+    private static List<MyShipConnector> connectedWas = new List<MyShipConnector>(), connectedNow = new List<MyShipConnector>();
+    private static double releasedAt = double.MinValue;
+    private static bool releasedInRange;
+
+    /// <summary>One of your connectors let go (and still exists): you've undocked.</summary>
+    private static void Released(DockTrack t, double now)
+    {
+        t.ConnectedNow(connectedNow);
+        bool released = false;
+        foreach (var c in connectedWas)
+            if (!c.Closed && c.IsFunctional && !c.Connected) released = true;
+        (connectedWas, connectedNow) = (connectedNow, connectedWas);
+        if (!released) return;
+        releasedAt = now;
+        releasedInRange = true;
+        var s = DockConfig.Current;
+        if (s.Damp && s.DampUndock != 0)
+            DockCam.Say(s.DampUndock < 0 ? "Undocked: docking dampener off until you're out of range."
+                                         : "Undocked: docking dampener off for " + s.DampUndock.ToString("0", CultureInfo.InvariantCulture) + " s.", 2500);
+    }
+
+    /// <summary>The dampener is paused after undocking (DampUndock): for that time, or until out of range.</summary>
+    public static bool DampPaused
+    {
+        get
+        {
+            float p = DockConfig.Current.DampUndock;
+            if (p == 0) return false;
+            if (p > 0) return DockClock.Now - releasedAt < p;
+            return releasedInRange; // cleared once out of the pop-up range (UpdateNear)
+        }
+    }
+    private static readonly List<MyShipConnector> watch = new List<MyShipConnector>();
+    private static MyShipConnector dockedOn;
+    private static double dockedAt;
+    private static bool dockedDone;
+
+    /// <summary>Docked and the time is up: the dock camera (or full-screen Docking Assist) and the PiP off.</summary>
+    private static void Docked()
+    {
+        bool any = DockCam.Active || Shown.Width > 0;
+        if (DockCam.Active) DockCam.Stop("");
+        Clear(); // the PiP stays switched on as it was: hidden while docked, back in range after undocking
+        if (any) DockCam.Say("Docked - dock camera and PiP off.");
+    }
 
     public static string Describe()
     {
         var s = DockConfig.Current;
         return "Dock PiP " + (s.PipOn ? "on" : "off") + ": " + DockPipLayout.CornerName(s.PipCorner) + ", " + s.PipSize.ToString("0.#", CultureInfo.InvariantCulture)
-               + "% tall, " + DockPipLayout.AspectText(s.PipAspect) + ", showing " + (s.PipMode == "assist" ? "the Docking Assist" : "the dock camera") + ", overlay " + (s.PipOverlay ? "on" : "off") + ", auto in 3rd person " + (s.PipAuto ? "on" : "off") + "; quality " + s.Quality + " ("
+               + "% tall, " + DockPipLayout.AspectText(s.PipAspect) + ", showing " + (s.PipMode == "assist" ? "the Docking Assist" : "the dock camera") + ", overlay " + (s.PipOverlay ? "on" : "off") + ", auto in 3rd person " + (s.PipAuto ? "on" : "off") + ", near a dock " + (s.PipNear ? "within " + s.PipNearRange.ToString("0", CultureInfo.InvariantCulture) + " m" : "off") + ", steer from it " + (s.SteerPip ? "on" : "off") + "; quality " + s.Quality + " ("
                + s.PipFps + " fps, up to " + s.PipRes + "p" + (s.PipEffects ? ", SSAO + bloom" : "") + ")." + (failed != null ? " " + failed : "");
     }
 
@@ -238,6 +389,7 @@ internal static class DockPip
         try
         {
             bool fullAssist = FullAssist && !editing;
+            UpdateNear(MySession.Static?.ControlledEntity as MyCockpit);
             if (!fullAssist && ((!Wanted && !editing) || DockCam.Showing || MyHud.CutsceneHud || (!MyHud.IsVisible && !editing))) { Clear(); return; }
             var cam = MySector.MainCamera;
             var cockpit = MySession.Static?.ControlledEntity as MyCockpit;

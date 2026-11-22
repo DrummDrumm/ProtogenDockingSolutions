@@ -168,6 +168,21 @@ public static class DockGuide
     /// <summary>Comfortable closing speed at a range: 10 m/s at 100 m and up, about 2 m/s at 20 m, 0.5 m/s in the last few metres.</summary>
     public static double SafeSpeed(double range) => Math.Max(0.5, Math.Min(10, 0.3 + range * 0.097));
 
+    /// <summary>Closing faster than Safe x this is the red SLOW DOWN.</summary>
+    public const double RedFactor = 1.6;
+    /// <summary>The dampener brakes with all the thrust there is above its limit x this (well under the red).</summary>
+    public const float OverFactor = 1.25f;
+
+    /// <summary>The dampener's Auto speed limit at a range: the safe speed the assist advises, never above your own limit.</summary>
+    public static double AutoSpeed(double range, double max) => Math.Min(max, SafeSpeed(range));
+
+    /// <summary>
+    /// The dampener's Auto acceleration limit at a range: 0.3 x the safe speed per second (3 m/s2 at 100 m, about 0.6 at
+    /// 20 m, 0.15 in the last metres), never above your own limit. That is about three times what slowing down along the
+    /// safe-speed curve needs, so it keeps up as the limit drops.
+    /// </summary>
+    public static double AutoAccel(double range, double max) => Math.Min(max, Math.Max(0.15, 0.3 * SafeSpeed(range)));
+
     /// <param name="me">your connector's frame</param>
     /// <param name="targetPos">the target connector's connection point</param>
     /// <param name="targetAxis">the target connector's outward axis (unit)</param>
@@ -188,7 +203,7 @@ public static class DockGuide
         double cos = Math.Max(-1, Math.Min(1, V3.Dot(Unit(me.Fwd), Unit(targetAxis * -1))));
         r.Misalign = Math.Acos(cos) * 180 / Math.PI;
         r.Safe = SafeSpeed(r.Range);
-        r.SpeedLevel = r.Closing <= r.Safe ? 0 : r.Closing <= r.Safe * 1.6 ? 1 : 2;
+        r.SpeedLevel = r.Closing <= r.Safe ? 0 : r.Closing <= r.Safe * RedFactor ? 1 : 2;
         r.InLockRange = r.Range <= LockDistance && r.Misalign <= LockAngle;
         return r;
     }

@@ -37,6 +37,8 @@ public class Plugin : IPlugin
                 if (cam) DockCam.Say("Dock camera off. " + PlayGuard.Paused, 4000);
             }
             if (PlayGuard.Blocked) return;
+            DockHotkey.Check();
+            DockSteer.Update();
             DockLcd.Update();
             DockCam.Update();
             DockPip.Tick();
