@@ -353,3 +353,10 @@ add to it when adding a patch here.
 ## Releasing
 
 How to release an update to PluginHub, and the `Release-PluginHub.ps1` script that does it: [RELEASING.md](RELEASING.md).
+
+## Disclaimer
+
+Protogen Systems is an unofficial fan project. I made these plugins for my own personal use on the Sigma Draconis
+Expanse 2 server; they are free, and anyone is welcome to use and enjoy them. The name is a nod to *The Expanse*.
+This project is not affiliated with, endorsed by or sponsored by the creators or rights holders of *The Expanse*,
+Keen Software House (Space Engineers), or the Sigma Draconis server. All trademarks belong to their respective owners.
