@@ -236,7 +236,8 @@ Write-Host "Pushed branch '$hubBranch'."
 # ---------------------------------------------------------------- pull request
 Step 'Pull request'
 $open = @()
-try { $open = @(Invoke-RestMethod "https://api.github.com/repos/$Upstream/pulls?state=open&head=$($owner):$hubBranch") } catch { Write-Warning "Could not ask GitHub for open pull requests: $_" }
+# piped so an empty reply ([]) counts as none: Windows PowerShell would wrap it as one item
+try { $open = @(Invoke-RestMethod "https://api.github.com/repos/$Upstream/pulls?state=open&head=$($owner):$hubBranch" | Where-Object { $_ -and $_.number }) } catch { Write-Warning "Could not ask GitHub for open pull requests: $_" }
 if ($open.Count -gt 0) {
     Write-Host "Pull request #$($open[0].number) is open for this branch and now points at $commit :" -ForegroundColor Green
     Write-Host "  $($open[0].html_url)"
