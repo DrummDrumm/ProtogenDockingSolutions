@@ -682,17 +682,34 @@ internal static class DockPip
         var resolution0 = MyRender11.m_resolution;
         var overrides = MyRender11.DebugOverrides;
         bool flares0 = overrides.Flares, ssao0 = overrides.SSAO, bloom0 = overrides.Bloom;
-        bool frozen0 = MyRender11.Settings.ShadowCameraFrozen;
+        bool frozen0 = MyRender11.Settings.ShadowCameraFrozen, postPP0 = MyRender11.Settings.DrawBillboardsPostPP;
         var geometry = MyManagers.GeometryRenderer;
         bool lod0 = geometry.IsLodUpdateEnabled;
+        // the older renderer's models (cockpits, screens, many block parts) pick their LOD from whichever camera renders, and
+        // start a dithered fade when it changes: a far feed camera would set them fading each time, a halo on the main view
+        var lodding = MyCommon.LoddingSettings;
+        bool oldLod0 = lodding != null && lodding.Global.IsUpdateEnabled;
+        bool lumKept = false;
+        // the eye adaptation's exposure: two 1x1 textures the scene render swaps each time (the new one first); a feed's
+        // render would leave its own (dark scene) exposure as the main view's, which then re-adapts over a few frames, a
+        // bright pulse each time a feed renders. The pair goes back in its order after, so the main view's stays first.
+        // the frame constants' camera movement (this frame's camera minus the last one set): put back too
+        var lastCamera0 = MyCommon.m_lastCameraPosition;
+        var exposure = MyEyeAdaptation.m_autoExposure;
+        var exposure0 = exposure != null && exposure.Length > 1 ? exposure[0] : null;
+        var exposure1 = exposure0 != null ? exposure[1] : null;
         try
         {
+            lumKept = SaveLuminance();
             MyRender11.ViewportResolution = new Vector2I(w, h);
             MyRender11.m_resolution = new Vector2I(w, h);
             overrides.Flares = false;
             if (!effects) overrides.SSAO = overrides.Bloom = false;
             MyRender11.Settings.ShadowCameraFrozen = true;
+            // PostPP billboards are the pilot's overlays (Virtual Displays' cockpit screens): not part of a camera's picture
+            MyRender11.Settings.DrawBillboardsPostPP = false;
             geometry.IsLodUpdateEnabled = false;
+            if (lodding != null) lodding.Global.IsUpdateEnabled = false;
             SetCamera(MatrixD.Invert(world), proj0, projFar0, fov, near, far, farFar, world.Translation, 0, 0, false);
             Drawing = true;
             DrawGameSceneOriginal(target, out var ao);
@@ -702,15 +719,43 @@ internal static class DockPip
         finally
         {
             Drawing = false;
+            if (lumKept) RestoreLuminance();
+            if (exposure0 != null) { exposure[0] = exposure0; exposure[1] = exposure1; }
             MyRender11.ViewportResolution = viewport0;
             MyRender11.m_resolution = resolution0;
             overrides.Flares = flares0; overrides.SSAO = ssao0; overrides.Bloom = bloom0;
             MyRender11.Settings.ShadowCameraFrozen = frozen0;
+            MyRender11.Settings.DrawBillboardsPostPP = postPP0;
             geometry.IsLodUpdateEnabled = lod0;
+            if (lodding != null) lodding.Global.IsUpdateEnabled = oldLod0;
             SetCamera(view0, proj0, projFar0, fov0, near0, far0, farFar, pos0, offX, offY, smooth0);
             // the rest of this frame (debug draws, lines) uses the main camera's constants again
+            MyCommon.m_lastCameraPosition = lastCamera0;
             MyCommon.UpdateFrameConstants();
+            MyCommon.m_lastCameraPosition = lastCamera0;
         }
+    }
+
+    /// <summary>
+    /// The eye adaptation's memory (the game's 1x1 average-luminance texture): every scene render updates it, so a feed's
+    /// render (usually darker than the cockpit) would make the next frames of the main view over-exposed, a bright bloom
+    /// round the screens that fades in a few frames, each time a feed renders. It's saved before a feed and put back after.
+    /// </summary>
+    private static IUavTexture lumSaved;
+
+    private static bool SaveLuminance()
+    {
+        var lum = MyLuminanceAverage.m_prevLum;
+        if (lum == null) return false;
+        lumSaved ??= MyManagers.RwTextures.CreateUav("ProtogenDockingSolutions.PrevLum", 1, 1, Format.R32G32_Float);
+        MyRender11.RC.CopyResource(lum, lumSaved);
+        return true;
+    }
+
+    private static void RestoreLuminance()
+    {
+        var lum = MyLuminanceAverage.m_prevLum;
+        if (lum != null && lumSaved != null) MyRender11.RC.CopyResource(lumSaved, lum);
     }
 
     private static void SetCamera(MatrixD view, MatrixD proj, MatrixD projFar, float fov, float near, float far, float farFar, Vector3D position, float offX, float offY, bool smooth)

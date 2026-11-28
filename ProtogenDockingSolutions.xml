@@ -8,20 +8,20 @@
   <Author>DrummDrumm</Author>
   <Tooltip>Dock camera, Docking Assist screens and docking guidance for any connector, with an API for other plugins and mods.</Tooltip>
   <Description>
-    Protogen Systems Docking Solutions helps you dock: a full-screen dock camera on your connector's face with guidance
-    (crosshair, target brackets, approach corridor, range, closing speed, offset, alignment and the next step), and the
-    "DOCK - Docking Assist" LCD script (any LCD, cockpit or seat screen) with a drawn approach view, tunnel, scope and gauges.
+    Protogen Systems Docking Solutions helps you dock: a full-screen dock camera with guidance
+    (target brackets, approach corridor, range, closing speed, offset, alignment and the next step), and the
+    "DOCK - Docking Assist" LCD script (any LCD, cockpit or seat screen) with an approach view, tunnel, scope and gauges.
 
-    Works with any connector block, vanilla or modded: one with [Dock] in its name is picked first, one with [NoDock] is
-    never used. Chat: /dock on | off | next | target | offset | map | theme. Toolbar actions on every cockpit.
+    Optional while docking: a picture-in-picture dock camera, steering from the camera
+    (W flies the way it looks) and a docking dampener that limits the speed your keys ask for. All in the settings
+    window (Pulsar plugin list).
 
-    Optional while docking: a picture-in-picture window of the dock camera that can pop up near a dock, steering from the
-    camera (W flies the way it looks), and a docking dampener that limits the speed your keys ask for. All of it is set
-    up in the settings window (Pulsar plugin list).
+    Works with any connector, vanilla or modded: one with [Dock] in its name is picked first, one with [NoDock] never.
+    Chat: /dock on | off | next | target | offset | map | theme.
 
-    Other plugins and mods can read the docking figures, the dock camera's spot and the Docking Assist sprites through the
-    mod message API (Api/DockingSolutionsApi.cs).
-    Client-side only: nothing extra is sent to the server. Steering from the camera and the dampener only change the move and turn input your seat already sends.
+    A mod message API gives other plugins and mods the docking figures and the Assist sprites. Client-side only: nothing
+    extra is sent to the server. Steering from the camera and the dampener only change the move and turn input your seat
+    already sends.
   </Description>
   <!-- Only source code in the Directory entries listed in SourceDirectories is compiled. -->
   <SourceDirectories>
